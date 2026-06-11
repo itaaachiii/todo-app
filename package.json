@@ -1,20 +1,19 @@
 {
   "name": "todo-app",
   "version": "1.0.0",
-  "description": "A simple Todo App built with Node.js and Express",
+  "description": "A simple todo app with MongoDB",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js"
   },
-  "keywords": ["todo", "app", "nodejs"],
-  "author": "ademo",
-  "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
-    "body-parser": "^1.20.2"
+    "body-parser": "^1.20.2",
+    "mongoose": "^7.0.0",
+    "dotenv": "^16.0.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^2.0.20"
   }
 }
