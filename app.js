@@ -1,66 +1,105 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const path = require('path');
+const mongoose = require('mongoose');
+const Todo = require('./models/Todo');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// In-memory storage for todos
-let todos = [];
-let id = 1;
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log('Connected to MongoDB successfully!');
+})
+.catch((err) => {
+  console.error('MongoDB connection error:', err);
+  process.exit(1);
+});
 
 // Routes
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
-// API endpoint to get all todos
-app.get('/api/todos', (req, res) => {
+// Get all todos
+app.get('/api/todos', async (req, res) => {
+  try {
+    const todos = await Todo.find().sort({ createdAt: -1 });
     res.json(todos);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// API endpoint to add a new todo
-app.post('/api/todos', (req, res) => {
-    const { task } = req.body;
-    if (!task || task.trim() === '') {
-        return res.status(400).json({ error: 'Task cannot be empty' });
+// Add a new todo
+app.post('/api/todos', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ error: 'Todo text is required' });
     }
-    const newTodo = {
-        id: id++,
-        task: task.trim(),
-        completed: false
-    };
-    todos.push(newTodo);
+
+    const newTodo = new Todo({ text });
+    await newTodo.save();
     res.json(newTodo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// API endpoint to update a todo (mark as completed)
-app.put('/api/todos/:id', (req, res) => {
-    const todoId = parseInt(req.params.id);
-    const todo = todos.find(t => t.id === todoId);
-    if (!todo) {
-        return res.status(404).json({ error: 'Todo not found' });
+// Update a todo (mark as complete)
+app.put('/api/todos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { completed } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid todo ID' });
     }
-    todo.completed = !todo.completed;
-    res.json(todo);
+
+    const updatedTodo = await Todo.findByIdAndUpdate(
+      id,
+      { completed },
+      { new: true }
+    );
+
+    if (!updatedTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    res.json(updatedTodo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// API endpoint to delete a todo
-app.delete('/api/todos/:id', (req, res) => {
-    const todoId = parseInt(req.params.id);
-    const index = todos.findIndex(t => t.id === todoId);
-    if (index === -1) {
-        return res.status(404).json({ error: 'Todo not found' });
+// Delete a todo
+app.delete('/api/todos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid todo ID' });
     }
-    const deletedTodo = todos.splice(index, 1);
-    res.json(deletedTodo[0]);
+
+    const deletedTodo = await Todo.findByIdAndDelete(id);
+
+    if (!deletedTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    res.json({ message: 'Todo deleted successfully', todo: deletedTodo });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Start server
-const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`Todo App running at http://localhost:${PORT}`);
+  console.log(`Todo App running at http://localhost:${PORT}`);
 });
